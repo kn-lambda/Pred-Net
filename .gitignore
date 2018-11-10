@@ -1,0 +1,7 @@
+.ipynb_checkpoints/
+old/
+etc/
+__pycache__/
+logs/
+pred_video/
+saved_model/
