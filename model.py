@@ -264,7 +264,7 @@ class PredNet(object):
         """execution for time-sequences 
         Args:
             X : 5-dim (batch_size, time_length, height, width, num_channels) tensor
-            pred_length (int) : the number of frames predicton are repeated, after the input sequence is terminated
+            pred_length (int) : the number of predicted frames after the input sequence is terminated
         """
         assert len(X.shape) == 5, "the dimension of the input tensor must be {}, but {}.".format(5, len(X.shape))
         
