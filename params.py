@@ -15,15 +15,18 @@ img_shape = (128, 160, 3)
 num_frames = 10 
 # the number of videos which consists of 'num_frames' frames
 # the total number of frames loaded == 'num_frames' * 'num_sequences'
-num_sequences = 2000
+# if None, all data is loaded
+num_sequences = None
 # the number of batches fed into the model at each step
 batch_size = 10
 
 
 #### training setting ########################################
 # the number of iterations in training
-# epoch == 'num_iterations'/('num_sequences'/'batch_size')
-num_iterations = 5000
+# epoch == 'num_iterations'/('num_sequences'/'batch_size') 
+num_iterations = 50000
+# learning late
+#lr = 0.001 # use default
 
 
 #### test setting #############################################

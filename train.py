@@ -52,15 +52,15 @@ with tf.Session() as sess:
         train_batch = next(train_iter)
         sess.run(train_op, feed_dict={X:train_batch})
         
-        if step % 10 == 0:
+        if step % 50 == 0:
             train_loss = sess.run(summary_op, feed_dict={X:train_batch})
             val_loss = sess.run(summary_op, feed_dict={X:val_arr})
-
             writer_train.add_summary(train_loss, global_step=step)
             writer_val.add_summary(val_loss, global_step=step)
-            
             writer_train.flush()
             writer_val.flush()
+            print("epoch {}, total step {}".format(epoch, step))
 
-            print("epoch {}, total step {} .".format(epoch, step))
+        if step % 500 == 0:
             saver.save(sess, SAVE_DIR, write_meta_graph=False, global_step=step)
+            print("---- saved check point")

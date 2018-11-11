@@ -120,7 +120,6 @@ class RepBlock(object):
             R : R[t, l]
         << t : time, l : layer >>
         """
-        
         if above_R is not None:
             up_R = self.up_sampler(above_R)
             input_lstm = tf.concat([before_R, before_E, up_R], axis=3) # concat within channel dim
@@ -146,7 +145,7 @@ class ErrBlock(object):
             self.conv_target = tf.layers.Conv2D(filters=out_channels, kernel_size=kernel_size, padding="same")
     
     
-    def __call__(self, below_E, R):
+    def __call__(self, R, below_E=None):
         """
         Args: 
             below_E : E[t, l-1] (l>0), input-image (l=0)
@@ -156,17 +155,20 @@ class ErrBlock(object):
             A_pred : hatA[t, l]
         << t : time, l : layer >>
         """
-        
         if self.is_bottom == False:
-            A_target = self.down_sampler(tf.nn.relu(self.conv_target(below_E)))
             A_pred = tf.nn.relu(self.conv_pred(R))
-        else:
-            A_target = below_E
-            # at the bottom layer, A_pred is interpreted as the prediction for the next frame
+            A_target = self.down_sampler(tf.nn.relu(self.conv_target(below_E)))
+        else: # at the bottom layer
+            # A_pred is interpreted as the prediction for the next frame, thus cliped
             A_pred = tf.clip_by_value(tf.nn.relu(self.conv_pred(R)), 0.0, self.pixcel_max)
+            # input frame is fed into the 'below_E'
+            # if no frame is fed, predict the next frame based on the previously predicted frame
+            if below_E is None:
+                A_target = A_pred
+            else:
+                A_target = below_E
             
         E = tf.concat([tf.nn.relu(A_pred - A_target), tf.nn.relu(A_target - A_pred)], axis=3)
-        
         return E, A_pred
 
 
@@ -179,7 +181,6 @@ class PredNet(object):
             stack_chanels : touple of integers representing the number of channels of each layer
                             (first layer, second layer, thier layer, ...)
         """
-        
         self.stack_channels = stack_channels
         self.num_layers = len(stack_channels)
         
@@ -207,8 +208,10 @@ class PredNet(object):
            3. from bottom to top, 'E's are updated
         Args:
             x : 4-dim (batch_size, height, width, num_channels) tensor
+                'None' if no input frame
         """
-        assert len(x.shape) == 4, "the dimension of the input tensor must be {}, but {}.".format(4, len(x.shape))
+        if x is not None:
+            assert len(x.shape) == 4, "the dimension of the input tensor must be {}, but {}.".format(4, len(x.shape))
         
         # initialize 'R's and 'E's as 0 when started
         if self.stack_E is None:
@@ -233,7 +236,7 @@ class PredNet(object):
                 
                 if l != self.num_layers - 1:
                     # calculation to extract the shape in the above layer
-                    # 2D-shape is reduced to halve while channel size is increased
+                    # 2D-shape is reduced to halve, while channel size is increased
                     goup = tf.layers.Conv2D(filters=self.stack_channels[l+1], kernel_size=2, strides=2, trainable=False, kernel_initializer=tf.zeros_initializer())
                     # A[l].shape -> A[l+1].shape
                     tmp_A = goup(tmp_A)
@@ -249,9 +252,9 @@ class PredNet(object):
         # update E-block from bottom to top
         for l in range(self.num_layers):
             if l != 0:
-                new_E, _ = getattr(self, "E_block"+str(l))(self.stack_E[l-1], self.stack_R[l])
+                new_E, _ = getattr(self, "E_block"+str(l))(self.stack_R[l], self.stack_E[l-1])
             else:
-                new_E, pred = getattr(self, "E_block"+str(l))(x, self.stack_R[l])     
+                new_E, pred = getattr(self, "E_block"+str(l))(self.stack_R[l], x)     
             
             self.stack_E[l] = new_E
 
@@ -279,7 +282,8 @@ class PredNet(object):
             if t < time_length:
                 x_t = X[:, t, :, :, :]
             else:
-                x_t = pred_list[-1]
+                # all input frames has been comsumed
+                x_t = None
                 
             loss_t, pred_t = self._one_step(x_t)    
             pred_list.append(pred_t)
